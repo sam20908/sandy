@@ -1,7 +1,4 @@
-use crate::{
-    InterpreterError, KeywordKind, LiteralKind, OperatorKind, Token, TokenKind, KEYWORDS, OPS_CHAR,
-    OPS_STR,
-};
+use crate::*;
 
 fn skip_whitespace(pos: &mut usize, buf: &Vec<u8>) {
     while *pos < buf.len() && (buf[*pos] as char).is_whitespace() {
@@ -11,12 +8,20 @@ fn skip_whitespace(pos: &mut usize, buf: &Vec<u8>) {
 
 fn expected_char_from_leading(cur: char, leading: char) -> bool {
     if leading.is_ascii_alphabetic() {
-        return cur.is_ascii_alphabetic() || cur.is_ascii_digit();
+        return cur.is_ascii_alphanumeric();
     }
     if leading.is_ascii_digit() {
         return cur.is_ascii_digit();
     }
-    if leading == '+' || leading == '-' || leading == '*' || leading == '/' || leading == '=' {
+    if leading == '+'
+        || leading == '-'
+        || leading == '*'
+        || leading == '/'
+        || leading == '='
+        || leading == '!'
+        || leading == '<'
+        || leading == '>'
+    {
         return cur == '=';
     }
 
@@ -31,13 +36,16 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
 
     let first = buf[*pos] as char;
     let is_str = first == '"';
-    let is_op = OPS_CHAR.contains(&first);
-    let mut str_closed = !is_str;
     let mut token_str = if is_str {
-        String::from("")
+        String::new()
     } else {
         first.to_string()
     };
+    let is_op = OPS.contains_key(&token_str.as_str());
+    let mut str_closed = !is_str;
+    let mut all_alpha = first.is_ascii_alphabetic();
+    let mut all_digit = first.is_ascii_digit();
+    let mut all_alphaordigit = first.is_ascii_alphanumeric();
     *pos += 1;
     while *pos < buf.len() {
         let c = buf[*pos] as char;
@@ -58,48 +66,43 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
         } else {
             token_str.push(c);
         }
+        all_alpha &= c.is_ascii_alphabetic();
+        all_digit &= c.is_ascii_digit();
+        all_alphaordigit &= c.is_ascii_alphanumeric();
         if is_op {
             break;
         }
     }
-    if is_op {
-        match OPS_STR.get(&token_str.as_str()) {
-            Some(op_kind) => Ok(Some(Token {
-                kind: TokenKind::Operator(*op_kind),
-                val: None,
-            })),
-            None => unreachable!(),
-        }
+    debug_assert!(token_str.len() > 0);
+    if let Some(op_kind) = OPS.get(&token_str.as_str()) {
+        Ok(Some(Token::Op(*op_kind)))
+    } else if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
+        Ok(Some(Token::Keyword(*keyword_kind)))
     } else {
-        match KEYWORDS.get(&token_str.as_str()) {
-            Some(keyword_kind) => Ok(Some(Token {
-                kind: TokenKind::Keyword(*keyword_kind),
-                val: None,
-            })),
-            None => {
-                if is_str {
-                    if str_closed {
-                        Ok(Some(Token {
-                            kind: TokenKind::Literal(LiteralKind::String),
-                            val: Some(token_str),
-                        }))
-                    } else {
-                        Err(InterpreterError::Lexer(
-                            "Unclosed quotes while parsing string literal",
-                        ))
-                    }
-                } else if first.is_ascii_digit() {
-                    Ok(Some(Token {
-                        kind: TokenKind::Literal(LiteralKind::Constant),
-                        val: Some(token_str),
-                    }))
+        match (all_alpha, all_digit) {
+            (false, false) => {
+                if all_alphaordigit {
+                    debug_assert!(first.is_ascii_alphabetic());
+                    Ok(Some(Token::Id(token_str)))
                 } else {
-                    Ok(Some(Token {
-                        kind: TokenKind::Identifier,
-                        val: Some(token_str),
-                    }))
+                    Err(InterpreterError::Lexer("Unrecognized symbol"))
                 }
             }
+            (true, false) => {
+                if is_str {
+                    if str_closed {
+                        Ok(Some(Token::Literal(LiteralKind::Str(token_str))))
+                    } else {
+                        Err(InterpreterError::Lexer("Unclosed or mismatched quote"))
+                    }
+                } else {
+                    Ok(Some(Token::Id(token_str)))
+                }
+            }
+            (false, true) => Ok(Some(Token::Literal(LiteralKind::Constant(
+                token_str.parse::<i32>().unwrap(),
+            )))),
+            (true, true) => unreachable!(),
         }
     }
 }

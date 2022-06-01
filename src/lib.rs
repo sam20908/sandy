@@ -26,33 +26,68 @@ pub(crate) extern crate lazy_static;
 lazy_static! {
     pub(crate) static ref KEYWORDS: HashMap<&'static str, KeywordKind> =
         HashMap::from([("var", KeywordKind::Var)]);
-    pub(crate) static ref OPS_CHAR: HashSet<char> = HashSet::from(['+', '-', '*', '/', '=']);
-    pub(crate) static ref OPS_STR: HashMap<&'static str, OperatorKind> = HashMap::from([
-        ("+", OperatorKind::Add),
-        ("-", OperatorKind::Sub),
-        ("*", OperatorKind::Mul),
-        ("/", OperatorKind::Div),
-        ("=", OperatorKind::Assign),
-        ("+=", OperatorKind::AddOnto),
-        ("-=", OperatorKind::SubOnto),
-        ("*=", OperatorKind::MulOnto),
-        ("/=", OperatorKind::DivOnto),
-        ("==", OperatorKind::CmpEq),
+    pub(crate) static ref OPS: HashMap<&'static str, OpKind> = HashMap::from([
+        // ops
+        ("+", OpKind::Add),
+        ("-", OpKind::Sub),
+        ("*", OpKind::Mul),
+        ("/", OpKind::Div),
+        ("=", OpKind::Assign),
+        ("!", OpKind::Bang),
+        // self-modifying ops
+        ("+=", OpKind::SelfAdd),
+        ("-=", OpKind::SelfSub),
+        ("*=", OpKind::SelfMul),
+        ("/=", OpKind::SelfDiv),
+        // cmp ops
+        ("<", OpKind::CmpGt),
+        (">", OpKind::CmpLt),
+        ("<=", OpKind::CmpGeq),
+        (">=", OpKind::CmpLeq),
+        ("==", OpKind::CmpEq),
+        ("!=", OpKind::CmpNeq),
+        // brackets
+        ("(", OpKind::LCurly),
+        (")", OpKind::RCurly),
+        ("{", OpKind::LBrace),
+        ("}", OpKind::RBrace),
+        // miscellaneous
+        (",", OpKind::Comma),
+        (".", OpKind::Dot),
+        (";", OpKind::Semicolon),
     ]);
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum OperatorKind {
+pub enum OpKind {
+    // ops
     Add,
     Sub,
     Mul,
     Div,
     Assign,
-    AddOnto,
-    SubOnto,
-    MulOnto,
-    DivOnto,
+    Bang,
+    // self-modifying ops
+    SelfAdd,
+    SelfSub,
+    SelfMul,
+    SelfDiv,
+    // cmp ops
+    CmpGt,
+    CmpLt,
+    CmpGeq,
+    CmpLeq,
     CmpEq,
+    CmpNeq,
+    // brackets
+    LCurly,
+    RCurly,
+    LBrace,
+    RBrace,
+    // miscellaneous
+    Comma,
+    Dot,
+    Semicolon,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -60,22 +95,16 @@ pub enum KeywordKind {
     Var,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum LiteralKind {
-    String,
-    Constant,
+    Str(String),
+    Constant(i32),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum TokenKind {
-    Identifier,
+#[derive(Debug, PartialEq)]
+pub enum Token {
+    Id(String),
     Literal(LiteralKind),
     Keyword(KeywordKind),
-    Operator(OperatorKind),
-}
-
-#[derive(Debug)]
-pub struct Token {
-    kind: TokenKind,
-    val: Option<String>,
+    Op(OpKind),
 }
