@@ -43,7 +43,11 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
     };
     let is_op = OPS.contains_key(&token_str.as_str());
     let mut str_closed = !is_str;
-    let mut all_alpha = first.is_ascii_alphabetic();
+    let mut all_alpha = if is_str {
+        true
+    } else {
+        first.is_ascii_alphabetic()
+    };
     let mut all_digit = first.is_ascii_digit();
     let mut all_alphaordigit = first.is_ascii_alphanumeric();
     *pos += 1;
@@ -73,7 +77,6 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
             break;
         }
     }
-    debug_assert!(token_str.len() > 0);
     if let Some(op_kind) = OPS.get(&token_str.as_str()) {
         Ok(Some(Token::Op(*op_kind)))
     } else if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
