@@ -32,6 +32,7 @@ lazy_static! {
         ("-", OpKind::Sub),
         ("*", OpKind::Mul),
         ("/", OpKind::Div),
+        ("%", OpKind::Mod),
         ("=", OpKind::Assign),
         ("!", OpKind::Bang),
         // self-modifying ops
@@ -39,6 +40,7 @@ lazy_static! {
         ("-=", OpKind::SelfSub),
         ("*=", OpKind::SelfMul),
         ("/=", OpKind::SelfDiv),
+        ("%=", OpKind::SelfMod),
         // cmp ops
         ("<", OpKind::CmpGt),
         (">", OpKind::CmpLt),
@@ -67,11 +69,13 @@ pub enum OpKind {
     Div,
     Assign,
     Bang,
+    Mod,
     // self-modifying ops
     SelfAdd,
     SelfSub,
     SelfMul,
     SelfDiv,
+    SelfMod,
     // cmp ops
     CmpGt,
     CmpLt,

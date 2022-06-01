@@ -21,6 +21,7 @@ fn expected_char_from_leading(cur: char, leading: char) -> bool {
         || leading == '!'
         || leading == '<'
         || leading == '>'
+        || leading == '%'
     {
         return cur == '=';
     }
