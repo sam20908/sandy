@@ -12,10 +12,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pos = 0;
 
     let mut tokens = vec![];
-    while let Some(token) = lexer::parse_next_token(&mut pos, &buf)? {
-        tokens.push(token);
+    let mut errors = vec![];
+    while let token_option = lexer::parse_next_token(&mut pos, &buf) {
+        match token_option {
+            Ok(Some(token)) => tokens.push(token),
+            Ok(None) => break,
+            Err(err) => errors.push(err),
+        }
     }
     println!("{tokens:?}");
+    println!("{errors:?}");
 
     Ok(())
 }

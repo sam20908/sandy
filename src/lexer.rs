@@ -44,19 +44,39 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
     };
     let is_op = OPS.contains_key(&token_str.as_str());
     let mut str_closed = !is_str;
-    let mut all_alpha = is_str || first.is_ascii_alphabetic();
+    let mut all_alpha = first.is_ascii_alphabetic();
     let mut all_digit = first.is_ascii_digit();
-    let mut all_alphaordigit = first.is_ascii_alphanumeric();
     *pos += 1;
     while *pos < buf.len() {
-        let c = buf[*pos] as char;
-        if c.is_whitespace() {
+        let mut c = buf[*pos] as char;
+        if c.is_whitespace() && !is_str {
             break;
         }
         if first.is_ascii_digit() && c.is_ascii_alphabetic() {
             // if we don't catch this now, substrings like 12a will not be detected as
             // invalid because it'll be separated into two tokens
-            return Err(InterpreterError::Lexer("Found letter in constant"));
+            // keep consuming the token to create meaningful diagnostic
+            while *pos < buf.len() && c.is_ascii_alphanumeric() {
+                token_str.push(c);
+                *pos += 1;
+                c = buf[*pos] as char;
+            }
+            return Err(InterpreterError::Lexer(format!(
+                "Found alphabet while parsing constant literal: {}",
+                token_str
+            )));
+        }
+        if !first.is_ascii_alphanumeric() && !is_str && !is_op {
+            // keep consuming the token to create meaningful diagnostic
+            while *pos < buf.len() && !c.is_whitespace() {
+                token_str.push(c);
+                *pos += 1;
+                c = buf[*pos] as char;
+            }
+            return Err(InterpreterError::Lexer(format!(
+                "Unrecognized symbol: {}",
+                token_str
+            )));
         }
         if !expected_char_from_leading(c, first) {
             break;
@@ -74,7 +94,6 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
         }
         all_alpha &= c.is_ascii_alphabetic();
         all_digit &= c.is_ascii_digit();
-        all_alphaordigit &= c.is_ascii_alphanumeric();
         if is_op {
             break;
         }
@@ -86,23 +105,19 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
     } else {
         match (all_alpha, all_digit) {
             (false, false) => {
-                if all_alphaordigit {
-                    debug_assert!(first.is_ascii_alphabetic());
-                    Ok(Some(Token::Id(token_str)))
-                } else {
-                    Err(InterpreterError::Lexer("Unrecognized symbol"))
-                }
-            }
-            (true, false) => {
                 if is_str {
                     if str_closed {
                         Ok(Some(Token::Literal(LiteralKind::Str(token_str))))
                     } else {
-                        Err(InterpreterError::Lexer("Unclosed or mismatched quote"))
+                        Err(InterpreterError::Lexer("Unclosed parenthesis".to_string()))
                     }
                 } else {
                     Ok(Some(Token::Id(token_str)))
                 }
+            }
+            (true, false) => {
+                debug_assert!(!is_str);
+                Ok(Some(Token::Id(token_str)))
             }
             (false, true) => Ok(Some(Token::Literal(LiteralKind::Constant(
                 token_str.parse::<i32>().unwrap(),

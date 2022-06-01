@@ -7,12 +7,12 @@ pub mod parser;
 
 #[derive(Debug)]
 pub enum InterpreterError {
-    Lexer(&'static str),
-    Parser(&'static str),
+    Lexer(String),
+    Parser(String),
 }
 impl fmt::Display for InterpreterError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
+        match &*self {
             InterpreterError::Lexer(msg) => write!(f, "Lexer failed because: {}", msg),
             InterpreterError::Parser(msg) => write!(f, "Parser failed because: {}", msg),
         }
