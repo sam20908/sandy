@@ -43,11 +43,7 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
     };
     let is_op = OPS.contains_key(&token_str.as_str());
     let mut str_closed = !is_str;
-    let mut all_alpha = if is_str {
-        true
-    } else {
-        first.is_ascii_alphabetic()
-    };
+    let mut all_alpha = is_str || first.is_ascii_alphabetic();
     let mut all_digit = first.is_ascii_digit();
     let mut all_alphaordigit = first.is_ascii_alphanumeric();
     *pos += 1;
@@ -55,6 +51,11 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
         let c = buf[*pos] as char;
         if c.is_whitespace() {
             break;
+        }
+        if first.is_ascii_digit() && c.is_ascii_alphabetic() {
+            // if we don't catch this now, substrings like 12a will not be detected as
+            // invalid because it'll be separated into two tokens
+            return Err(InterpreterError::Lexer("Found letter in constant"));
         }
         if !expected_char_from_leading(c, first) {
             break;
