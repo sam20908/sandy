@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{InterpreterError, LiteralKind, Token, KEYWORDS, OPS};
 
 fn skip_whitespace(pos: &mut usize, buf: &Vec<u8>) {
     while *pos < buf.len() && (buf[*pos] as char).is_whitespace() {

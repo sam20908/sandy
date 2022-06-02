@@ -1,9 +1,7 @@
 use std::fs::File;
-use std::io;
-use std::io::prelude::*;
+use std::io::Read;
 
 use interpreter::*;
-use parser::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut src = File::open("test.txt")?;
@@ -13,8 +11,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut tokens = vec![];
     let mut errors = vec![];
-    while let token_option = lexer::parse_next_token(&mut pos, &buf) {
-        match token_option {
+    loop {
+        match lexer::parse_next_token(&mut pos, &buf) {
             Ok(Some(token)) => tokens.push(token),
             Ok(None) => break,
             Err(err) => errors.push(err),
