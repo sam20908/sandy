@@ -102,7 +102,8 @@ pub enum KeywordKind {
 #[derive(Debug, PartialEq)]
 pub enum LiteralKind {
     Str(String),
-    Constant(i32),
+    NumWhole(i64),
+    NumDecimal(f64),
 }
 
 #[derive(Debug, PartialEq)]

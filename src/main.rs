@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 
-use interpreter::*;
+use interpreter::lexer;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut src = File::open("test.txt")?;
