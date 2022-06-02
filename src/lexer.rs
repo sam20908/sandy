@@ -120,45 +120,41 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
             break;
         }
     }
-    if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
-        Ok(Some(Token::Keyword(*keyword_kind)))
-    } else {
-        if is_str {
-            if str_closed {
-                return Ok(Some(Token::Literal(LiteralKind::Str(token_str))));
-            } else {
-                return Err(InterpreterError::Lexer("Unclosed parenthesis".to_string()));
-            }
-        }
-        if alpha_count > 0 && digit_count > 0 {
-            // don't have to worry about cases like 12a because they'll get separated as two tokens
-            Ok(Some(Token::Id(token_str)))
-        } else if alpha_count > 0 && digit_count == 0 {
-            if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
-                Ok(Some(Token::Keyword(*keyword_kind)))
-            } else {
-                // not a keyword, can only assume it's an variable id
-                Ok(Some(Token::Id(token_str)))
-            }
-        } else if alpha_count == 0 && digit_count > 0 {
-            if seen_dot {
-                // floating point number
-                Ok(Some(Token::Literal(LiteralKind::NumDecimal(
-                    token_str.parse::<f64>().unwrap(),
-                ))))
-            } else {
-                Ok(Some(Token::Literal(LiteralKind::NumWhole(
-                    token_str.parse::<i64>().unwrap(),
-                ))))
-            }
+    if is_str {
+        if str_closed {
+            return Ok(Some(Token::Literal(LiteralKind::Str(token_str))));
         } else {
-            if let Some(op_kind) = OPS.get(&token_str.as_str()) {
-                Ok(Some(Token::Op(*op_kind)))
-            } else {
-                // unrecognized ops will be handled earlier, before checking if the
-                // current character is expected from the leading character
-                unreachable!();
-            }
+            return Err(InterpreterError::Lexer("Unclosed parenthesis".to_string()));
+        }
+    }
+    if alpha_count > 0 && digit_count > 0 {
+        // don't have to worry about cases like 12a because they'll get separated as two tokens
+        Ok(Some(Token::Id(token_str)))
+    } else if alpha_count > 0 && digit_count == 0 {
+        if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
+            Ok(Some(Token::Keyword(*keyword_kind)))
+        } else {
+            // not a keyword, can only assume it's an variable id
+            Ok(Some(Token::Id(token_str)))
+        }
+    } else if alpha_count == 0 && digit_count > 0 {
+        if seen_dot {
+            // floating point number
+            Ok(Some(Token::Literal(LiteralKind::NumDecimal(
+                token_str.parse::<f64>().unwrap(),
+            ))))
+        } else {
+            Ok(Some(Token::Literal(LiteralKind::NumWhole(
+                token_str.parse::<i64>().unwrap(),
+            ))))
+        }
+    } else {
+        if let Some(op_kind) = OPS.get(&token_str.as_str()) {
+            Ok(Some(Token::Op(*op_kind)))
+        } else {
+            // unrecognized ops will be handled earlier, before checking if the
+            // current character is expected from the leading character
+            unreachable!();
         }
     }
 }
