@@ -71,7 +71,17 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
             if c == '.' {
                 // parse the floating point literal, be careful with cases like 12.3.4
                 if seen_dot {
-                    break; // treat the dot as a separate token now
+                    // there's only one dot max for floating points
+                    // keep consuming the token to create meaningful diagnostic
+                    while *pos < buf.len() && !c.is_whitespace() {
+                        token_str.push(c);
+                        *pos += 1;
+                        c = buf[*pos] as char;
+                    }
+                    return Err(InterpreterError::Lexer(format!(
+                        "Found extraneous dot while parsing constant literal: {}",
+                        token_str
+                    )));
                 } else {
                     seen_dot = true;
                 }
