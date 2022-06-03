@@ -116,63 +116,21 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
         return Ok(Some(Token::Id(token_str)));
     }
     token_str.push(c);
-    if c == '+' || c == '-' {
-        // use lookahead to determine whether to parse a number or an op
+    if let Some(op_kind) = OPS.get(&token_str.as_str()) {
+        // ops may be at most 2 characters long
         let lookahead = if *pos + 1 < buf.len() {
             buf[*pos + 1] as char
         } else {
             ' '
         };
-        if lookahead.is_ascii_digit() || lookahead == '.' {
-            *pos += 1;
-            let num_type = parse_literal_num(pos, buf, &mut token_str)?;
-            if num_type == NumType::Whole {
-                Ok(Some(Token::Literal(LiteralKind::NumWhole(
-                    token_str.parse::<i64>().unwrap(),
-                ))))
-            } else {
-                Ok(Some(Token::Literal(LiteralKind::NumDecimal(
-                    token_str.parse::<f64>().unwrap(),
-                ))))
-            }
-        } else if lookahead == '=' {
+        let mut token_str2 = token_str.clone();
+        token_str2.push(lookahead);
+        if let Some(op_kind2) = OPS.get(&token_str2.as_str()) {
             *pos += 2;
-            token_str.push('=');
-            // += and -= are guaranteed to exist in ops map
-            match OPS.get(&token_str.as_str()) {
-                Some(op_kind) => Ok(Some(Token::Op(*op_kind))),
-                None => unreachable!(),
-            }
+            Ok(Some(Token::Op(*op_kind2)))
         } else {
             *pos += 1;
-            // + and - are guaranteed to exist in ops map
-            match OPS.get(&token_str.as_str()) {
-                Some(op_kind) => Ok(Some(Token::Op(*op_kind))),
-                None => unreachable!(),
-            }
-        }
-    } else if OPS.contains_key(&token_str.as_str()) {
-        // + and - are handled in the above condition, don't try to look for a number
-        let lookahead = if *pos + 1 < buf.len() {
-            buf[*pos + 1] as char
-        } else {
-            ' '
-        };
-        if lookahead == '=' {
-            *pos += 2;
-            token_str.push('=');
-            // self-modifying ops are guaranteed to exist in ops map
-            match OPS.get(&token_str.as_str()) {
-                Some(op_kind) => Ok(Some(Token::Op(*op_kind))),
-                None => unreachable!(),
-            }
-        } else {
-            *pos += 1;
-            // the op is already guaranteed to exist in ops map
-            match OPS.get(&token_str.as_str()) {
-                Some(op_kind) => Ok(Some(Token::Op(*op_kind))),
-                None => unreachable!(),
-            }
+            Ok(Some(Token::Op(*op_kind)))
         }
     } else {
         // we found an invalid symbol
