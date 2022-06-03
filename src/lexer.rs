@@ -93,29 +93,24 @@ fn parse_op(
     buf: &Vec<u8>,
     token_str: &mut String,
 ) -> Result<OpKind, InterpreterError> {
-    // ops may be at most 2 characters long
-    token_str.reserve(2); // avoid reallocation for atmost 2 characters
-    token_str.push(buf[*pos] as char);
-    *pos += 1;
-    let token_ref = &token_str; // make borrow checker happy
-    if let Some(op_kind) = OPS.get(token_ref.as_str()) {
-        // ops may be at most 2 characters long
-        let lookahead = if *pos < buf.len() {
-            buf[*pos] as char
-        } else {
-            ' '
-        };
-        token_str.push(lookahead);
-        if let Some(op_kind2) = OPS.get(&token_str.as_str()) {
-            *pos += 1;
-            Ok(*op_kind2)
-        } else {
-            Ok(*op_kind)
+    // try to "eat" as much characters for a valid op as possible
+    loop {
+        token_str.push(buf[*pos] as char);
+        *pos += 1;
+        if let None = OPS.get(&token_str.as_str()) {
+            break;
         }
-    } else {
+    }
+    // last character in the token makes the op unrecognized, so don't process it
+    token_str.pop();
+    *pos -= 1;
+    if token_str.len() == 0 {
         // we found an invalid symbol
         fwd_until_whitespace(pos, buf);
         Err(InterpreterError::Lexer("Unrecognized symbol".to_string()))
+    } else {
+        // we just verified that the op would exist if the last character is gone
+        Ok(unsafe { *OPS.get(&token_str.as_str()).unwrap_unchecked() })
     }
 }
 
