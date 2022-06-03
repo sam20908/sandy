@@ -1,7 +1,6 @@
-expr -> literal | binaryop | binaryop self mod | unaryop | group
+expr -> literal | binaryop | binaryop | unaryop | group
 
 literal -> LiteralKind
-binaryop -> expr OpKind::Binary expr
-binaryop self mod -> expr OpKind::BinarySelfMod expr
+binaryop self mod -> expr (OpKind::Binary | OpKind::BinarySelfMod) expr
 unaryop -> OpKind::Unary expr
 group -> OpKind::LCurly expr OpKind::RCurly

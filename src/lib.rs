@@ -66,6 +66,19 @@ lazy_static! {
         (".", OpKind::Dot),
         (";", OpKind::ExprEnd),
     ]);
+    pub(crate) static ref PRECEDENCE: HashMap<&'static str, u8> =
+        HashMap::from([("+", 1), ("-", 1), ("*", 2), ("/", 2),]);
+    pub(crate) static ref ASSOCIATIVITY: HashMap<&'static str, Associativity> = HashMap::from([
+        ("+", Associativity::Left),
+        ("-", Associativity::Left),
+        ("=", Associativity::Right),
+    ]);
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Associativity {
+    Left,
+    Right,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
