@@ -1,32 +1,91 @@
 use crate::{InterpreterError, LiteralKind, Token, KEYWORDS, OPS};
 
+#[derive(PartialEq)]
+enum NumType {
+    Whole,
+    Decimal,
+}
+
 fn skip_whitespace(pos: &mut usize, buf: &Vec<u8>) {
     while *pos < buf.len() && (buf[*pos] as char).is_whitespace() {
         *pos += 1;
     }
 }
 
-fn expected_char_from_leading(cur: char, leading: char) -> bool {
-    if leading.is_ascii_alphabetic() {
-        return cur.is_ascii_alphanumeric();
+fn fwd_until_whitespace(pos: &mut usize, buf: &Vec<u8>) {
+    while *pos < buf.len() && !(buf[*pos] as char).is_whitespace() {
+        *pos += 1;
     }
-    if leading.is_ascii_digit() {
-        return cur.is_ascii_digit() || cur == '.';
-    }
-    if leading == '+'
-        || leading == '-'
-        || leading == '*'
-        || leading == '/'
-        || leading == '='
-        || leading == '!'
-        || leading == '<'
-        || leading == '>'
-        || leading == '%'
-    {
-        return cur == '=';
-    }
+}
 
-    leading == '"'
+fn parse_literal_num(
+    pos: &mut usize,
+    buf: &Vec<u8>,
+    token_str: &mut String,
+) -> Result<NumType, InterpreterError> {
+    let mut seen_dot = false;
+    while *pos < buf.len() {
+        let c = buf[*pos] as char;
+        if c.is_whitespace() {
+            break;
+        }
+        if c == '.' {
+            if seen_dot {
+                fwd_until_whitespace(pos, buf); // skip over invalid token
+                return Err(InterpreterError::Lexer(
+                    "Found extraneous dot while parsing decimal".to_string(),
+                ));
+            } else {
+                seen_dot = true;
+            }
+        } else if !c.is_ascii_digit() {
+            fwd_until_whitespace(pos, buf); // skip over invalid token
+            return Err(InterpreterError::Lexer(
+                "Found invalid character while parsing decimal".to_string(),
+            ));
+        }
+        token_str.push(c);
+        *pos += 1;
+    }
+    Ok(if seen_dot {
+        NumType::Decimal
+    } else {
+        NumType::Whole
+    })
+}
+
+fn parse_literal_str(
+    pos: &mut usize,
+    buf: &Vec<u8>,
+    token_str: &mut String,
+) -> Result<(), InterpreterError> {
+    *pos += 1; // skip leading quote
+    while *pos < buf.len() {
+        let c = buf[*pos] as char;
+        if c == '"' {
+            *pos += 1; // skip this quote character for next token
+            return Ok(());
+        } else {
+            // keep consuming characters inside the string literal
+            token_str.push(c);
+            *pos += 1;
+        }
+    }
+    // if we found a closing quote, we'd never reach here (the end)
+    Err(InterpreterError::Lexer("Unclosed quote".to_string()))
+}
+
+fn parse_id(pos: &mut usize, buf: &Vec<u8>, token_str: &mut String) {
+    // no error handling is needed since we know the first character is already
+    // an alphabet, we just stop if we hit a non-alphanumeric character
+    while *pos < buf.len() {
+        let c = buf[*pos] as char;
+        if !c.is_ascii_alphanumeric() {
+            break;
+        }
+        token_str.push(c);
+        *pos += 1;
+    }
 }
 
 pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>, InterpreterError> {
@@ -35,126 +94,89 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
         return Ok(None);
     }
 
-    let first = buf[*pos] as char;
-    let is_str = first == '"';
-    let mut token_str = if is_str {
-        String::new()
-    } else {
-        first.to_string()
-    };
-    let is_op = OPS.contains_key(&token_str.as_str());
-    let mut str_closed = !is_str;
-    let mut alpha_count = first.is_ascii_alphabetic() as u32;
-    let mut digit_count = first.is_ascii_digit() as u32;
-    let mut seen_dot = false;
-    *pos += 1;
-    while *pos < buf.len() {
-        let mut c = buf[*pos] as char;
-        if c.is_whitespace() && !is_str {
-            break;
-        }
-        if first.is_ascii_digit() {
-            if c.is_ascii_alphabetic() {
-                // if we don't catch this now, substrings like 12a will not be detected as
-                // invalid because it'll be separated into two tokens
-                // keep consuming the token to create meaningful diagnostic
-                while *pos < buf.len() && c.is_ascii_alphanumeric() {
-                    token_str.push(c);
-                    *pos += 1;
-                    c = buf[*pos] as char;
-                }
-                return Err(InterpreterError::Lexer(format!(
-                    "Found alphabet while parsing constant literal: {}",
-                    token_str
-                )));
-            }
-            if c == '.' {
-                // parse the floating point literal, be careful with cases like 12.3.4
-                if seen_dot {
-                    // there's only one dot max for floating points
-                    // keep consuming the token to create meaningful diagnostic
-                    while *pos < buf.len() && !c.is_whitespace() {
-                        token_str.push(c);
-                        *pos += 1;
-                        c = buf[*pos] as char;
-                    }
-                    return Err(InterpreterError::Lexer(format!(
-                        "Found extraneous dot while parsing constant literal: {}",
-                        token_str
-                    )));
-                } else {
-                    seen_dot = true;
-                }
-            }
-        }
-        if !first.is_ascii_alphanumeric() && !is_str && !is_op {
-            // some other symbol that's not an op
-            // keep consuming the token to create meaningful diagnostic
-            while *pos < buf.len() && !c.is_whitespace() {
-                token_str.push(c);
-                *pos += 1;
-                c = buf[*pos] as char;
-            }
-            return Err(InterpreterError::Lexer(format!(
-                "Unrecognized symbol: {}",
-                token_str
-            )));
-        }
-        if !expected_char_from_leading(c, first) {
-            break;
-        }
-        *pos += 1;
-        if is_str {
-            if c == '"' {
-                str_closed = true;
-                break;
-            } else {
-                token_str.push(c);
-            }
-        } else {
-            token_str.push(c);
-        }
-        alpha_count += c.is_ascii_alphabetic() as u32;
-        digit_count += c.is_ascii_digit() as u32;
-        if is_op {
-            break;
-        }
-    }
-    if is_str {
-        if str_closed {
-            return Ok(Some(Token::Literal(LiteralKind::Str(token_str))));
-        } else {
-            return Err(InterpreterError::Lexer("Unclosed parenthesis".to_string()));
-        }
-    }
-    if alpha_count > 0 && digit_count > 0 {
-        // don't have to worry about cases like 12a because they'll get separated as two tokens
-        Ok(Some(Token::Id(token_str)))
-    } else if alpha_count > 0 && digit_count == 0 {
-        if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
-            Ok(Some(Token::Keyword(*keyword_kind)))
-        } else {
-            // not a keyword, can only assume it's an variable id
-            Ok(Some(Token::Id(token_str)))
-        }
-    } else if alpha_count == 0 && digit_count > 0 {
-        if seen_dot {
-            // floating point number
-            Ok(Some(Token::Literal(LiteralKind::NumDecimal(
-                token_str.parse::<f64>().unwrap(),
-            ))))
-        } else {
-            Ok(Some(Token::Literal(LiteralKind::NumWhole(
+    let c = buf[*pos] as char;
+    let mut token_str = String::new();
+    if c == '"' {
+        // pos is already handled by parse_literal_str
+        let _ = parse_literal_str(pos, buf, &mut token_str)?;
+        return Ok(Some(Token::Literal(LiteralKind::Str(token_str))));
+    } else if c.is_ascii_digit() {
+        let num_type = parse_literal_num(pos, buf, &mut token_str)?;
+        if num_type == NumType::Whole {
+            return Ok(Some(Token::Literal(LiteralKind::NumWhole(
                 token_str.parse::<i64>().unwrap(),
-            ))))
+            ))));
+        } else {
+            return Ok(Some(Token::Literal(LiteralKind::NumDecimal(
+                token_str.parse::<f64>().unwrap(),
+            ))));
+        }
+    } else if c.is_ascii_alphabetic() {
+        parse_id(pos, buf, &mut token_str);
+        return Ok(Some(Token::Id(token_str)));
+    }
+    token_str.push(c);
+    if c == '+' || c == '-' {
+        // use lookahead to determine whether to parse a number or an op
+        let lookahead = if *pos + 1 < buf.len() {
+            buf[*pos + 1] as char
+        } else {
+            ' '
+        };
+        if lookahead.is_ascii_digit() || lookahead == '.' {
+            *pos += 1;
+            let num_type = parse_literal_num(pos, buf, &mut token_str)?;
+            if num_type == NumType::Whole {
+                Ok(Some(Token::Literal(LiteralKind::NumWhole(
+                    token_str.parse::<i64>().unwrap(),
+                ))))
+            } else {
+                Ok(Some(Token::Literal(LiteralKind::NumDecimal(
+                    token_str.parse::<f64>().unwrap(),
+                ))))
+            }
+        } else if lookahead == '=' {
+            *pos += 2;
+            token_str.push('=');
+            // += and -= are guaranteed to exist in ops map
+            match OPS.get(&token_str.as_str()) {
+                Some(op_kind) => Ok(Some(Token::Op(*op_kind))),
+                None => unreachable!(),
+            }
+        } else {
+            *pos += 1;
+            // + and - are guaranteed to exist in ops map
+            match OPS.get(&token_str.as_str()) {
+                Some(op_kind) => Ok(Some(Token::Op(*op_kind))),
+                None => unreachable!(),
+            }
+        }
+    } else if OPS.contains_key(&token_str.as_str()) {
+        // + and - are handled in the above condition, don't try to look for a number
+        let lookahead = if *pos + 1 < buf.len() {
+            buf[*pos + 1] as char
+        } else {
+            ' '
+        };
+        if lookahead == '=' {
+            *pos += 2;
+            token_str.push('=');
+            // self-modifying ops are guaranteed to exist in ops map
+            match OPS.get(&token_str.as_str()) {
+                Some(op_kind) => Ok(Some(Token::Op(*op_kind))),
+                None => unreachable!(),
+            }
+        } else {
+            *pos += 1;
+            // the op is already guaranteed to exist in ops map
+            match OPS.get(&token_str.as_str()) {
+                Some(op_kind) => Ok(Some(Token::Op(*op_kind))),
+                None => unreachable!(),
+            }
         }
     } else {
-        if let Some(op_kind) = OPS.get(&token_str.as_str()) {
-            Ok(Some(Token::Op(*op_kind)))
-        } else {
-            // unrecognized ops will be handled earlier, before checking if the
-            // current character is expected from the leading character
-            unreachable!();
-        }
+        // we found an invalid symbol
+        fwd_until_whitespace(pos, buf);
+        Err(InterpreterError::Lexer("Unrecognized symbol".to_string()))
     }
 }
