@@ -128,7 +128,6 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
     let c = buf[*pos] as char;
     let mut token_str = String::new();
     if c == '"' {
-        // pos is already handled by parse_literal_str
         let _ = parse_literal_str(pos, buf, &mut token_str)?;
         Ok(Some(Token::Literal(LiteralKind::Str(token_str))))
     } else if c.is_ascii_digit() {
