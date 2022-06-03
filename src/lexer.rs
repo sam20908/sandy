@@ -1,4 +1,4 @@
-use crate::{InterpreterError, LiteralKind, Token, KEYWORDS, OPS};
+use crate::{InterpreterError, LiteralKind, OpKind, Token, KEYWORDS, OPS};
 
 #[derive(PartialEq)]
 enum NumType {
@@ -88,6 +88,37 @@ fn parse_id(pos: &mut usize, buf: &Vec<u8>, token_str: &mut String) {
     }
 }
 
+fn parse_op(
+    pos: &mut usize,
+    buf: &Vec<u8>,
+    token_str: &mut String,
+) -> Result<OpKind, InterpreterError> {
+    // ops may be at most 2 characters long
+    token_str.reserve(2); // avoid reallocation for atmost 2 characters
+    token_str.push(buf[*pos] as char);
+    *pos += 1;
+    let token_ref = &token_str; // make borrow checker happy
+    if let Some(op_kind) = OPS.get(token_ref.as_str()) {
+        // ops may be at most 2 characters long
+        let lookahead = if *pos + 1 < buf.len() {
+            buf[*pos + 1] as char
+        } else {
+            ' '
+        };
+        token_str.push(lookahead);
+        if let Some(op_kind2) = OPS.get(&token_str.as_str()) {
+            *pos += 1;
+            Ok(*op_kind2)
+        } else {
+            Ok(*op_kind)
+        }
+    } else {
+        // we found an invalid symbol
+        fwd_until_whitespace(pos, buf);
+        Err(InterpreterError::Lexer("Unrecognized symbol".to_string()))
+    }
+}
+
 pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>, InterpreterError> {
     skip_whitespace(pos, buf);
     if *pos == buf.len() {
@@ -99,46 +130,26 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
     if c == '"' {
         // pos is already handled by parse_literal_str
         let _ = parse_literal_str(pos, buf, &mut token_str)?;
-        return Ok(Some(Token::Literal(LiteralKind::Str(token_str))));
+        Ok(Some(Token::Literal(LiteralKind::Str(token_str))))
     } else if c.is_ascii_digit() {
         let num_type = parse_literal_num(pos, buf, &mut token_str)?;
         if num_type == NumType::Whole {
-            return Ok(Some(Token::Literal(LiteralKind::NumWhole(
+            Ok(Some(Token::Literal(LiteralKind::NumWhole(
                 token_str.parse::<i64>().unwrap(),
-            ))));
+            ))))
         } else {
-            return Ok(Some(Token::Literal(LiteralKind::NumDecimal(
+            Ok(Some(Token::Literal(LiteralKind::NumDecimal(
                 token_str.parse::<f64>().unwrap(),
-            ))));
+            ))))
         }
     } else if c.is_ascii_alphabetic() {
         parse_id(pos, buf, &mut token_str);
         if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
-            return Ok(Some(Token::Keyword(*keyword_kind)));
+            Ok(Some(Token::Keyword(*keyword_kind)))
         } else {
-            return Ok(Some(Token::Id(token_str)));
-        }
-    }
-    token_str.push(c);
-    if let Some(op_kind) = OPS.get(&token_str.as_str()) {
-        // ops may be at most 2 characters long
-        let lookahead = if *pos + 1 < buf.len() {
-            buf[*pos + 1] as char
-        } else {
-            ' '
-        };
-        let mut token_str2 = token_str.clone();
-        token_str2.push(lookahead);
-        if let Some(op_kind2) = OPS.get(&token_str2.as_str()) {
-            *pos += 2;
-            Ok(Some(Token::Op(*op_kind2)))
-        } else {
-            *pos += 1;
-            Ok(Some(Token::Op(*op_kind)))
+            Ok(Some(Token::Id(token_str)))
         }
     } else {
-        // we found an invalid symbol
-        fwd_until_whitespace(pos, buf);
-        Err(InterpreterError::Lexer("Unrecognized symbol".to_string()))
+        Ok(Some(Token::Op(parse_op(pos, buf, &mut token_str)?)))
     }
 }
