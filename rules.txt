@@ -4,4 +4,4 @@ literal -> LiteralKind
 binaryop -> expr OpKind::Binary expr
 binaryop self mod -> expr OpKind::BinarySelfMod expr
 unaryop -> OpKind::Unary expr
-group -> OpKind::LBrace expr OpKind::RBrace
+group -> OpKind::LCurly expr OpKind::RCurly
