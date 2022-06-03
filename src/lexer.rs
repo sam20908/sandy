@@ -113,7 +113,11 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
         }
     } else if c.is_ascii_alphabetic() {
         parse_id(pos, buf, &mut token_str);
-        return Ok(Some(Token::Id(token_str)));
+        if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
+            return Ok(Some(Token::Keyword(*keyword_kind)));
+        } else {
+            return Ok(Some(Token::Id(token_str)));
+        }
     }
     token_str.push(c);
     if let Some(op_kind) = OPS.get(&token_str.as_str()) {
