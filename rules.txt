@@ -1,0 +1,7 @@
+expr -> literal | binaryop | binaryop self mod | unaryop | group
+
+literal -> LiteralKind
+binaryop -> expr OpKind::Binary expr
+binaryop self mod -> expr OpKind::BinarySelfMod expr
+unaryop -> OpKind::Unary expr
+group -> "(" expr ")"

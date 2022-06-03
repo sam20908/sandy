@@ -100,8 +100,8 @@ fn parse_op(
     let token_ref = &token_str; // make borrow checker happy
     if let Some(op_kind) = OPS.get(token_ref.as_str()) {
         // ops may be at most 2 characters long
-        let lookahead = if *pos + 1 < buf.len() {
-            buf[*pos + 1] as char
+        let lookahead = if *pos < buf.len() {
+            buf[*pos] as char
         } else {
             ' '
         };

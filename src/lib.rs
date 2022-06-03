@@ -27,71 +27,48 @@ lazy_static! {
     pub(crate) static ref KEYWORDS: HashMap<&'static str, KeywordKind> =
         HashMap::from([("var", KeywordKind::Var)]);
     pub(crate) static ref OPS: HashMap<&'static str, OpKind> = HashMap::from([
-        // ops
-        ("+", OpKind::Add),
-        ("-", OpKind::Sub),
-        ("*", OpKind::Mul),
-        ("/", OpKind::Div),
-        ("%", OpKind::Mod),
+        ("+", OpKind::Binary("+")),
+        ("-", OpKind::Binary("-")),
+        ("*", OpKind::Binary("*")),
+        ("/", OpKind::Binary("/")),
+        ("%", OpKind::Binary("%")),
+        ("+=", OpKind::BinarySelfMod("+")),
+        ("-=", OpKind::BinarySelfMod("-")),
+        ("*=", OpKind::BinarySelfMod("*")),
+        ("/=", OpKind::BinarySelfMod("/")),
+        ("%=", OpKind::BinarySelfMod("%")),
+        ("!", OpKind::Unary("!")),
+        ("<", OpKind::Cmp("<")),
+        (">", OpKind::Cmp(">")),
+        ("<=", OpKind::Cmp("<=")),
+        (">=", OpKind::Cmp(">=")),
+        ("==", OpKind::Cmp("==")),
+        ("!=", OpKind::Cmp("!=")),
         ("=", OpKind::Assign),
-        ("!", OpKind::Bang),
-        // self-modifying ops
-        ("+=", OpKind::SelfAdd),
-        ("-=", OpKind::SelfSub),
-        ("*=", OpKind::SelfMul),
-        ("/=", OpKind::SelfDiv),
-        ("%=", OpKind::SelfMod),
-        // cmp ops
-        ("<", OpKind::CmpGt),
-        (">", OpKind::CmpLt),
-        ("<=", OpKind::CmpGeq),
-        (">=", OpKind::CmpLeq),
-        ("==", OpKind::CmpEq),
-        ("!=", OpKind::CmpNeq),
-        // brackets
         ("(", OpKind::LCurly),
         (")", OpKind::RCurly),
         ("{", OpKind::LBrace),
         ("}", OpKind::RBrace),
-        // miscellaneous
         (",", OpKind::Comma),
         (".", OpKind::Dot),
-        (";", OpKind::Semicolon),
+        (";", OpKind::ExprEnd),
     ]);
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum OpKind {
-    // ops
-    Add,
-    Sub,
-    Mul,
-    Div,
+    Binary(&'static str),
+    BinarySelfMod(&'static str),
+    Unary(&'static str),
+    Cmp(&'static str),
     Assign,
-    Bang,
-    Mod,
-    // self-modifying ops
-    SelfAdd,
-    SelfSub,
-    SelfMul,
-    SelfDiv,
-    SelfMod,
-    // cmp ops
-    CmpGt,
-    CmpLt,
-    CmpGeq,
-    CmpLeq,
-    CmpEq,
-    CmpNeq,
-    // brackets
     LCurly,
     RCurly,
     LBrace,
     RBrace,
-    // miscellaneous
     Comma,
     Dot,
-    Semicolon,
+    ExprEnd,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
