@@ -86,14 +86,14 @@ pub enum KeywordKind {
     Var,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum LiteralKind {
     Str(String),
     NumWhole(i64),
     NumDecimal(f64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Token {
     Id(String),
     Literal(LiteralKind),

@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{lexer_errors:?}");
 
     let mut parser_errors = vec![];
-    parser::parse(&mut tokens, &mut parser_errors);
+    parser::parse(&tokens, &mut parser_errors);
     println!("{parser_errors:?}");
 
     Ok(())

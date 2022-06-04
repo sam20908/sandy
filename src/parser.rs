@@ -20,11 +20,11 @@ struct UnaryOp {
 }
 impl Expr for UnaryOp {}
 
-fn expr(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn expr(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     eq(tokens, pos)
 }
 
-fn eq(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn eq(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     let mut left = cmp(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
@@ -39,7 +39,7 @@ fn eq(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     left
 }
 
-fn cmp(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn cmp(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     let mut left = term(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
@@ -54,7 +54,7 @@ fn cmp(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     left
 }
 
-fn term(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn term(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     let mut left = factor(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
@@ -69,7 +69,7 @@ fn term(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     left
 }
 
-fn factor(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn factor(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     let mut left = unary(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
@@ -84,7 +84,7 @@ fn factor(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     left
 }
 
-fn unary(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn unary(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     match tokens[*pos] {
         Token::Op(OpKind::Unary(op)) => {
             *pos += 1;
@@ -95,11 +95,11 @@ fn unary(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     }
 }
 
-fn primary(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
-    match tokens[*pos].clone() {
-        Token::Literal(LiteralKind::Str(str)) => {
+fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+    match tokens[*pos] {
+        Token::Literal(LiteralKind::Str(ref str)) => {
             *pos += 1;
-            Box::new(LiteralExpr { val: str })
+            Box::new(LiteralExpr { val: str.clone() })
         }
         Token::Literal(LiteralKind::NumWhole(num)) => {
             *pos += 1;
@@ -115,15 +115,20 @@ fn primary(tokens: &mut Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
             if *pos == tokens.len() {
                 panic!(); // unclosed parenthesis
             } else {
-                *pos += 1;
-                expr
+                match tokens[*pos] {
+                    Token::Op(OpKind::RBracket(")")) => {
+                        *pos += 1;
+                        expr
+                    }
+                    _ => panic!(), // unclosed parenthesis
+                }
             }
         }
-        _ => panic!(),
+        _ => panic!(), // unrecognized literal
     }
 }
 
-pub fn parse(tokens: &mut Vec<Token>, parser_errors: &mut Vec<InterpreterError>) {
+pub fn parse(tokens: &Vec<Token>, parser_errors: &mut Vec<InterpreterError>) {
     let mut pos = 0;
     let expr = expr(tokens, &mut pos);
 }
