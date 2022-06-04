@@ -112,7 +112,7 @@ fn parse_op(
         Err(InterpreterError::Lexer("Unrecognized symbol".to_string()))
     } else {
         // we just verified that the op would exist if the last character is gone
-        Ok(unsafe { *OPS.get(&token_str.as_str()).unwrap_unchecked() })
+        Ok(unsafe { OPS.get(&token_str.as_str()).unwrap_unchecked().clone() })
     }
 }
 
@@ -141,7 +141,7 @@ pub fn parse_next_token(pos: &mut usize, buf: &Vec<u8>) -> Result<Option<Token>,
     } else if c.is_ascii_alphabetic() {
         parse_id(pos, buf, &mut token_str);
         if let Some(keyword_kind) = KEYWORDS.get(&token_str.as_str()) {
-            Ok(Some(Token::Keyword(*keyword_kind)))
+            Ok(Some(Token::Keyword(keyword_kind.clone())))
         } else {
             Ok(Some(Token::Id(token_str)))
         }

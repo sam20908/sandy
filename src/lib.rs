@@ -66,22 +66,9 @@ lazy_static! {
         (".", OpKind::Dot),
         (";", OpKind::ExprEnd),
     ]);
-    pub(crate) static ref PRECEDENCE: HashMap<&'static str, u8> =
-        HashMap::from([("+", 1), ("-", 1), ("*", 2), ("/", 2),]);
-    pub(crate) static ref ASSOCIATIVITY: HashMap<&'static str, Associativity> = HashMap::from([
-        ("+", Associativity::Left),
-        ("-", Associativity::Left),
-        ("=", Associativity::Right),
-    ]);
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Associativity {
-    Left,
-    Right,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum OpKind {
     Binary(&'static str),
     BinarySelfMod(&'static str),
@@ -94,19 +81,19 @@ pub enum OpKind {
     ExprEnd,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum KeywordKind {
     Var,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum LiteralKind {
     Str(String),
     NumWhole(i64),
     NumDecimal(f64),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Token {
     Id(String),
     Literal(LiteralKind),

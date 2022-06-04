@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 
-use interpreter::lexer;
+use interpreter::{lexer, parser};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut src = File::open("test.txt")?;
@@ -10,16 +10,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pos = 0;
 
     let mut tokens = vec![];
-    let mut errors = vec![];
+    let mut lexer_errors = vec![];
     loop {
         match lexer::parse_next_token(&mut pos, &buf) {
             Ok(Some(token)) => tokens.push(token),
             Ok(None) => break,
-            Err(err) => errors.push(err),
+            Err(err) => lexer_errors.push(err),
         }
     }
     println!("{tokens:?}");
-    println!("{errors:?}");
+    println!("{lexer_errors:?}");
+
+    let mut parser_errors = vec![];
+    parser::parse(&mut tokens, &mut parser_errors);
+    println!("{parser_errors:?}");
 
     Ok(())
 }
