@@ -1,6 +1,7 @@
-expr -> literal | binaryop | binaryop | unaryop | group
-
-literal -> LiteralKind
-binaryop self mod -> expr (OpKind::Binary | OpKind::BinarySelfMod) expr
-unaryop -> OpKind::Unary expr
-group -> OpKind::LCurly expr OpKind::RCurly
+expr -> eq
+eq -> cmp (OpKind::Cmp('==' | '!=') cmp)*
+cmp -> term (OpKind::Cmp('<' | '>' | '<=' | '>=') term)*
+term -> factor (OpKind::Binary('+' | '-') factor)*
+factor -> unary (OpKind::Binary('*' | '/') unary)*
+unary -> OpKind::Unary unary | primary
+primary -> LiteralKind | OpKind::LBracket('(') expr OpKind::RBracket(')')
