@@ -112,16 +112,11 @@ fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
         Token::Op(OpKind::LBracket("(")) => {
             *pos += 1;
             let expr = expr(tokens, pos);
-            if *pos == tokens.len() {
+            if *pos == tokens.len() || !matches!(tokens[*pos], Token::Op(OpKind::RBracket(")"))) {
                 panic!(); // unclosed parenthesis
             } else {
-                match tokens[*pos] {
-                    Token::Op(OpKind::RBracket(")")) => {
-                        *pos += 1;
-                        expr
-                    }
-                    _ => panic!(), // unclosed parenthesis
-                }
+                *pos += 1;
+                expr
             }
         }
         _ => panic!(), // unrecognized literal
