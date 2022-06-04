@@ -38,11 +38,13 @@ fn parse_literal_num(
             } else {
                 seen_dot = true;
             }
-        } else if !c.is_ascii_digit() {
+        } else if c.is_ascii_alphabetic() {
             fwd_until_whitespace(pos, buf); // skip over invalid token
             return Err(InterpreterError::Lexer(
-                "Found invalid character while parsing decimal".to_string(),
+                "Found letter while parsing decimal".to_string(),
             ));
+        } else if !c.is_ascii_digit() {
+            break;
         }
         token_str.push(c);
         *pos += 1;
