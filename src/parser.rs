@@ -1,37 +1,24 @@
 use crate::{InterpreterError, LiteralKind, OpKind, Token};
+use std::rc::Rc;
 
-trait Expr {}
-
-struct LiteralExpr<T> {
-    val: T,
+enum Expr {
+    Literal(LiteralKind),
+    Binary(Rc<Expr>, &'static str, Rc<Expr>), // left, op, right
+    Unary(&'static str, Rc<Expr>),            // op, right
 }
-impl<T> Expr for LiteralExpr<T> {}
 
-struct BinaryOp {
-    left: Box<dyn Expr>,
-    right: Box<dyn Expr>,
-    op: &'static str,
-}
-impl Expr for BinaryOp {}
-
-struct UnaryOp {
-    expr: Box<dyn Expr>,
-    op: &'static str,
-}
-impl Expr for UnaryOp {}
-
-fn expr(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn expr(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     eq(tokens, pos)
 }
 
-fn eq(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn eq(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = cmp(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
             Token::Op(OpKind::Cmp(op)) if matches!(op, "==" | "!=") => {
                 *pos += 1;
                 let right = cmp(tokens, pos);
-                left = Box::new(BinaryOp { left, right, op });
+                left = Rc::new(Expr::Binary(left, op, right));
             }
             _ => break,
         }
@@ -39,14 +26,14 @@ fn eq(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     left
 }
 
-fn cmp(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn cmp(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = term(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
             Token::Op(OpKind::Cmp(op)) if matches!(op, "<" | ">" | "<=" | ">=") => {
                 *pos += 1;
                 let right = term(tokens, pos);
-                left = Box::new(BinaryOp { left, right, op });
+                left = Rc::new(Expr::Binary(left, op, right));
             }
             _ => break,
         }
@@ -54,14 +41,14 @@ fn cmp(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     left
 }
 
-fn term(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn term(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = factor(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
             Token::Op(OpKind::Binary(op)) if matches!(op, "+" | "-") => {
                 *pos += 1;
                 let right = factor(tokens, pos);
-                left = Box::new(BinaryOp { left, right, op });
+                left = Rc::new(Expr::Binary(left, op, right));
             }
             _ => break,
         }
@@ -69,14 +56,14 @@ fn term(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     left
 }
 
-fn factor(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn factor(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = unary(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
             Token::Op(OpKind::Binary(op)) if matches!(op, "*" | "/") => {
                 *pos += 1;
                 let right = unary(tokens, pos);
-                left = Box::new(BinaryOp { left, right, op });
+                left = Rc::new(Expr::Binary(left, op, right));
             }
             _ => break,
         }
@@ -84,30 +71,22 @@ fn factor(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     left
 }
 
-fn unary(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
+fn unary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     match tokens[*pos] {
         Token::Op(OpKind::Unary(op)) => {
             *pos += 1;
             let expr = unary(tokens, pos);
-            Box::new(UnaryOp { expr, op })
+            Rc::new(Expr::Unary(op, expr))
         }
         _ => primary(tokens, pos),
     }
 }
 
-fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
-    match tokens[*pos] {
-        Token::Literal(LiteralKind::Str(ref str)) => {
+fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
+    match &tokens[*pos] {
+        Token::Literal(literal) => {
             *pos += 1;
-            Box::new(LiteralExpr { val: str.clone() })
-        }
-        Token::Literal(LiteralKind::NumWhole(num)) => {
-            *pos += 1;
-            Box::new(LiteralExpr { val: num })
-        }
-        Token::Literal(LiteralKind::NumDecimal(num)) => {
-            *pos += 1;
-            Box::new(LiteralExpr { val: num })
+            Rc::new(Expr::Literal(literal.clone()))
         }
         Token::Op(OpKind::LBracket("(")) => {
             *pos += 1;
@@ -123,7 +102,67 @@ fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Box<dyn Expr> {
     }
 }
 
+fn eval_floating_points(left: f64, right: f64, op: &str) -> Result<LiteralKind, InterpreterError> {
+    match op {
+        "+" => Ok(LiteralKind::NumDecimal(left + right)),
+        "-" => Ok(LiteralKind::NumDecimal(left - right)),
+        "*" => Ok(LiteralKind::NumDecimal(left * right)),
+        "/" => Ok(LiteralKind::NumDecimal(left / right)),
+        _ => Err(InterpreterError::Parser(
+            "Unsupported operation on floating points".to_string(),
+        )),
+    }
+}
+
+fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
+    match expr {
+        Expr::Literal(literal) => Ok(literal.clone()),
+        Expr::Binary(left, op, right) => {
+            let left = eval(left)?;
+            let right = eval(right)?;
+            match (left, right) {
+                (LiteralKind::Str(left_str), LiteralKind::Str(right_str)) => {
+                    if op == &"+" {
+                        Ok(LiteralKind::Str(format!("{left_str}{right_str}")))
+                    } else {
+                        Err(InterpreterError::Parser(
+                            "Unsupported operator on strings".to_string(),
+                        ))
+                    }
+                }
+                (LiteralKind::NumWhole(left_num), LiteralKind::NumWhole(right_num)) => match op {
+                    &"+" => Ok(LiteralKind::NumWhole(left_num + right_num)),
+                    &"-" => Ok(LiteralKind::NumWhole(left_num - right_num)),
+                    &"*" => Ok(LiteralKind::NumWhole(left_num * right_num)),
+                    &"/" => Ok(LiteralKind::NumWhole(left_num / right_num)),
+                    &"%" => Ok(LiteralKind::NumWhole(left_num % right_num)),
+                    &"|" => Ok(LiteralKind::NumWhole(left_num | right_num)),
+                    &"&" => Ok(LiteralKind::NumWhole(left_num & right_num)),
+                    &"^" => Ok(LiteralKind::NumWhole(left_num ^ right_num)),
+                    _ => Err(InterpreterError::Parser(
+                        "Unsupported operator on both whole numbers".to_string(),
+                    )),
+                },
+                (LiteralKind::NumWhole(left_num), LiteralKind::NumDecimal(right_num)) => {
+                    Ok(eval_floating_points(left_num as f64, right_num, op)?)
+                }
+                (LiteralKind::NumDecimal(left_num), LiteralKind::NumWhole(right_num)) => {
+                    Ok(eval_floating_points(left_num, right_num as f64, op)?)
+                }
+                (LiteralKind::NumDecimal(left_num), LiteralKind::NumDecimal(right_num)) => {
+                    Ok(eval_floating_points(left_num, right_num, op)?)
+                }
+                _ => Err(InterpreterError::Parser("Invalid operands".to_string())),
+            }
+        }
+        Expr::Unary(op, expr) => todo!(),
+    }
+}
+
 pub fn parse(tokens: &Vec<Token>, parser_errors: &mut Vec<InterpreterError>) {
-    let mut pos = 0;
-    let expr = expr(tokens, &mut pos);
+    if tokens.len() > 0 {
+        let mut pos = 0;
+        let expr = expr(tokens, &mut pos);
+        println!("{:?}", eval(&expr));
+    }
 }

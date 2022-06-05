@@ -86,7 +86,7 @@ pub enum KeywordKind {
     Var,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LiteralKind {
     Str(String),
     NumWhole(i64),
