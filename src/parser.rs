@@ -108,9 +108,9 @@ fn eval_floating_points(left: f64, right: f64, op: &str) -> Result<LiteralKind, 
         "-" => Ok(LiteralKind::NumDecimal(left - right)),
         "*" => Ok(LiteralKind::NumDecimal(left * right)),
         "/" => Ok(LiteralKind::NumDecimal(left / right)),
-        _ => Err(InterpreterError::Parser(
-            "Unsupported operation on floating points".to_string(),
-        )),
+        _ => Err(InterpreterError::Parser(format!(
+            "{op} can't be applied to floating points"
+        ))),
     }
 }
 
@@ -125,9 +125,9 @@ fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
                     if op == &"+" {
                         Ok(LiteralKind::Str(format!("{left_str}{right_str}")))
                     } else {
-                        Err(InterpreterError::Parser(
-                            "Unsupported operator on strings".to_string(),
-                        ))
+                        Err(InterpreterError::Parser(format!(
+                            "{op} can't be applied to strings"
+                        )))
                     }
                 }
                 (LiteralKind::NumWhole(left_num), LiteralKind::NumWhole(right_num)) => match op {
@@ -139,9 +139,9 @@ fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
                     &"|" => Ok(LiteralKind::NumWhole(left_num | right_num)),
                     &"&" => Ok(LiteralKind::NumWhole(left_num & right_num)),
                     &"^" => Ok(LiteralKind::NumWhole(left_num ^ right_num)),
-                    _ => Err(InterpreterError::Parser(
-                        "Unsupported operator on both whole numbers".to_string(),
-                    )),
+                    _ => Err(InterpreterError::Parser(format!(
+                        "{op} can't be applied on whole numbers"
+                    ))),
                 },
                 (LiteralKind::NumWhole(left_num), LiteralKind::NumDecimal(right_num)) => {
                     Ok(eval_floating_points(left_num as f64, right_num, op)?)
@@ -152,7 +152,9 @@ fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
                 (LiteralKind::NumDecimal(left_num), LiteralKind::NumDecimal(right_num)) => {
                     Ok(eval_floating_points(left_num, right_num, op)?)
                 }
-                _ => Err(InterpreterError::Parser("Invalid operands".to_string())),
+                _ => Err(InterpreterError::Parser(
+                    "Can't have a string and number as operands".to_string(),
+                )),
             }
         }
         Expr::Unary(op, expr) => todo!(),
