@@ -1,4 +1,11 @@
-expr -> eq
+program -> decl* EOF
+
+decl -> var_decl | stmt
+var_decl -> KeywordKind::Var Token::Id(_) OpKind::Assign expr OpKind::StmtEnd
+
+stmt -> expr_stmt
+expr_stmt -> expr OpKind::StmtEnd
+
 eq -> cmp (OpKind::Cmp('==' | '!=') cmp)*
 cmp -> term (OpKind::Cmp('<' | '>' | '<=' | '>=') term)*
 term -> factor (OpKind::Binary('+' | '-') factor)*

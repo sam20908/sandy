@@ -39,7 +39,6 @@ lazy_static! {
         ("&&", OpKind::Binary("&&")),
         ("<<", OpKind::Binary("<<")),
         (">>", OpKind::Binary(">>")),
-        ("=", OpKind::BinarySelfMod("=")),
         ("+=", OpKind::BinarySelfMod("+")),
         ("-=", OpKind::BinarySelfMod("-")),
         ("*=", OpKind::BinarySelfMod("*")),
@@ -62,9 +61,10 @@ lazy_static! {
         (")", OpKind::RBracket(")")),
         ("{", OpKind::LBracket("{")),
         ("}", OpKind::RBracket("}")),
+        ("=", OpKind::Assign),
         (",", OpKind::Comma),
         (".", OpKind::Dot),
-        (";", OpKind::ExprEnd),
+        (";", OpKind::StmtEnd),
     ]);
 }
 
@@ -76,9 +76,10 @@ pub enum OpKind {
     Cmp(&'static str),
     LBracket(&'static str),
     RBracket(&'static str),
+    Assign,
     Comma,
     Dot,
-    ExprEnd,
+    StmtEnd,
 }
 
 #[derive(Debug, Clone)]

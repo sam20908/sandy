@@ -1,10 +1,65 @@
-use crate::{InterpreterError, LiteralKind, OpKind, Token};
+use crate::{InterpreterError, KeywordKind, LiteralKind, OpKind, Token};
 use std::rc::Rc;
 
 enum Expr {
     Literal(LiteralKind),
     Binary(Rc<Expr>, &'static str, Rc<Expr>), // left, op, right
     Unary(&'static str, Rc<Expr>),            // op, right
+}
+
+enum Stmt {
+    VarDecl(String, Rc<Expr>), // id, expr
+    Expr(Rc<Expr>),            // expr stmt
+}
+
+macro_rules! check_token {
+    ($tokens:ident, $pos:ident, $token:pat) => {
+        if *$pos < $tokens.len() && matches!($tokens[*$pos], $token) {
+            Some(&$tokens[*$pos])
+        } else {
+            None
+        }
+    };
+}
+
+fn decl(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Stmt> {
+    if let Some(_) = check_token!(tokens, pos, Token::Keyword(KeywordKind::Var)) {
+        *pos += 1;
+        var_decl(tokens, pos)
+    } else {
+        stmt(tokens, pos)
+    }
+}
+
+fn var_decl(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Stmt> {
+    // var keyword is already checked
+    let var_id = match check_token!(tokens, pos, Token::Id(_)) {
+        Some(&Token::Id(ref id)) => id.clone(),
+        Some(_) | None => panic!("expected identifier after var keyword"),
+    };
+    *pos += 1;
+    if let None = check_token!(tokens, pos, Token::Op(OpKind::Assign)) {
+        panic!("expected assignment operator after variable identifier");
+    }
+    *pos += 1;
+    let expr = expr(tokens, pos);
+    if let None = check_token!(tokens, pos, Token::Op(OpKind::StmtEnd)) {
+        panic!("expected semicolon at the end of variable declaration");
+    }
+    Rc::new(Stmt::VarDecl(var_id, expr))
+}
+
+fn stmt(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Stmt> {
+    // todo handle more statement types
+    expr_stmt(tokens, pos)
+}
+
+fn expr_stmt(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Stmt> {
+    let expr = expr(tokens, pos);
+    if let None = check_token!(tokens, pos, Token::Op(OpKind::StmtEnd)) {
+        panic!("expected semicolon at the end of expression statement");
+    }
+    Rc::new(Stmt::Expr(expr))
 }
 
 fn expr(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
@@ -164,7 +219,6 @@ fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
 pub fn parse(tokens: &Vec<Token>, parser_errors: &mut Vec<InterpreterError>) {
     if tokens.len() > 0 {
         let mut pos = 0;
-        let expr = expr(tokens, &mut pos);
-        println!("{:?}", eval(&expr));
+        let _ = decl(tokens, &mut pos);
     }
 }
