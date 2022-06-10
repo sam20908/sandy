@@ -5,6 +5,7 @@ enum Expr {
     Literal(LiteralKind),
     Binary(Rc<Expr>, &'static str, Rc<Expr>), // left, op, right
     Unary(&'static str, Rc<Expr>),            // op, right
+    Var(String),                              // var id
 }
 
 enum Stmt {
@@ -46,6 +47,7 @@ fn var_decl(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Stmt> {
     if let None = check_token!(tokens, pos, Token::Op(OpKind::StmtEnd)) {
         panic!("expected semicolon at the end of variable declaration");
     }
+    *pos += 1;
     Rc::new(Stmt::VarDecl(var_id, expr))
 }
 
@@ -59,6 +61,7 @@ fn expr_stmt(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Stmt> {
     if let None = check_token!(tokens, pos, Token::Op(OpKind::StmtEnd)) {
         panic!("expected semicolon at the end of expression statement");
     }
+    *pos += 1;
     Rc::new(Stmt::Expr(expr))
 }
 
@@ -153,6 +156,10 @@ fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
                 expr
             }
         }
+        Token::Id(ref id) => {
+            *pos += 1;
+            Rc::new(Expr::Var(id.clone()))
+        }
         _ => panic!("unrecognized literal"),
     }
 }
@@ -213,6 +220,7 @@ fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
             }
         }
         Expr::Unary(op, expr) => todo!(),
+        Expr::Var(_) => todo!(),
     }
 }
 
@@ -220,6 +228,5 @@ pub fn parse(tokens: &Vec<Token>, parser_errors: &mut Vec<InterpreterError>) {
     let mut pos = 0;
     while pos < tokens.len() {
         let _ = decl(tokens, &mut pos);
-        pos += 1;
     }
 }
