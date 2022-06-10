@@ -147,13 +147,13 @@ fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
             *pos += 1;
             let expr = expr(tokens, pos);
             if *pos == tokens.len() || !matches!(tokens[*pos], Token::Op(OpKind::RBracket(")"))) {
-                panic!(); // unclosed parenthesis
+                panic!("unclosed parenthesis");
             } else {
                 *pos += 1;
                 expr
             }
         }
-        _ => panic!(), // unrecognized literal
+        _ => panic!("unrecognized literal"),
     }
 }
 
@@ -217,8 +217,9 @@ fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
 }
 
 pub fn parse(tokens: &Vec<Token>, parser_errors: &mut Vec<InterpreterError>) {
-    if tokens.len() > 0 {
-        let mut pos = 0;
+    let mut pos = 0;
+    while pos < tokens.len() {
         let _ = decl(tokens, &mut pos);
+        pos += 1;
     }
 }
