@@ -141,20 +141,19 @@ fn unary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
 }
 
 fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
-    match &tokens[*pos] {
-        Token::Literal(literal) => {
+    match tokens[*pos] {
+        Token::Literal(ref literal) => {
             *pos += 1;
             Rc::new(Expr::Literal(literal.clone()))
         }
         Token::Op(OpKind::LBracket("(")) => {
             *pos += 1;
             let expr = expr(tokens, pos);
-            if *pos == tokens.len() || !matches!(tokens[*pos], Token::Op(OpKind::RBracket(")"))) {
-                panic!("unclosed parenthesis");
-            } else {
-                *pos += 1;
-                expr
+            if let None = check_token!(tokens, pos, Token::Op(OpKind::RBracket(")"))) {
+                panic!("expected closing bracket after expression");
             }
+            *pos += 1;
+            expr
         }
         Token::Id(ref id) => {
             *pos += 1;
