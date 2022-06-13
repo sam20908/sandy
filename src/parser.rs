@@ -1,6 +1,8 @@
 use crate::{InterpreterError, KeywordKind, LiteralKind, OpKind, Token};
+use std::collections::HashMap;
 use std::rc::Rc;
 
+#[derive(Debug)]
 enum Expr {
     Literal(LiteralKind),
     Binary(Rc<Expr>, &'static str, Rc<Expr>), // left, op, right
@@ -8,6 +10,7 @@ enum Expr {
     Var(String),                              // var id
 }
 
+#[derive(Debug)]
 enum Stmt {
     VarDecl(String, Rc<Expr>), // id, expr
     Expr(Rc<Expr>),            // expr stmt
@@ -176,12 +179,15 @@ fn eval_floating_points(left: f64, right: f64, op: &str) -> Result<LiteralKind, 
     }
 }
 
-fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
-    match expr {
+fn eval_expr(
+    expr: &Rc<Expr>,
+    environment: &HashMap<String, LiteralKind>,
+) -> Result<LiteralKind, InterpreterError> {
+    match &**expr {
         Expr::Literal(literal) => Ok(literal.clone()),
         Expr::Binary(left, op, right) => {
-            let left = eval(left)?;
-            let right = eval(right)?;
+            let left = eval_expr(&left, environment)?;
+            let right = eval_expr(&right, environment)?;
             match (left, right) {
                 (LiteralKind::Str(left_str), LiteralKind::Str(right_str)) => {
                     if op == &"+" {
@@ -220,13 +226,35 @@ fn eval(expr: &Expr) -> Result<LiteralKind, InterpreterError> {
             }
         }
         Expr::Unary(op, expr) => todo!(),
-        Expr::Var(_) => todo!(),
+        Expr::Var(id) => match environment.get(id) {
+            Some(val) => Ok(val.clone()),
+            None => panic!("undeclared variable referenced"),
+        },
+    }
+}
+
+fn eval_stmt(stmt: &Stmt, environment: &mut HashMap<String, LiteralKind>) {
+    match stmt {
+        Stmt::VarDecl(id, expr) => {
+            // creating a new variable with an initializer from expr
+            if let Some(_) = environment.insert(
+                id.clone(),
+                eval_expr(expr, environment).expect("failed to evaluate initializer"),
+            ) {
+                panic!("variable redefinition");
+            }
+        }
+        Stmt::Expr(expr) => todo!(),
     }
 }
 
 pub fn parse(tokens: &Vec<Token>, parser_errors: &mut Vec<InterpreterError>) {
     let mut pos = 0;
+    let mut environment = HashMap::new();
     while pos < tokens.len() {
-        let _ = decl(tokens, &mut pos);
+        // all declarations are statements, not the other way around
+        let stmt = decl(tokens, &mut pos);
+        println!("{stmt:?}");
+        eval_stmt(&stmt, &mut environment);
     }
 }
