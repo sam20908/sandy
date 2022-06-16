@@ -94,7 +94,7 @@ fn parse_op(
     pos: &mut usize,
     buf: &Vec<u8>,
     token_str: &mut String,
-) -> Result<OpKind, InterpreterError> {
+) -> Result<(OpKind, u8), InterpreterError> {
     // try to "eat" as much characters for a valid op as possible
     loop {
         token_str.push(buf[*pos] as char);

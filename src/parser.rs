@@ -5,9 +5,9 @@ use std::rc::Rc;
 #[derive(Debug)]
 enum Expr {
     Literal(LiteralKind),
-    Binary(Rc<Expr>, &'static str, Rc<Expr>), // left, op, right
-    Unary(&'static str, Rc<Expr>),            // op, right
-    Var(String),                              // var id
+    Binary(Rc<Expr>, OpKind, Rc<Expr>), // left, op, right
+    Unary(OpKind, Rc<Expr>),            // op, right
+    Var(String),                        // var id
 }
 
 #[derive(Debug)]
@@ -76,7 +76,7 @@ fn eq(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = cmp(tokens, pos);
     while *pos < tokens.len() {
         match tokens[*pos] {
-            Token::Op(OpKind::Cmp(op)) if matches!(op, "==" | "!=") => {
+            Token::Op((op, _)) if matches!(op, OpKind::Eq | OpKind::Neq) => {
                 *pos += 1;
                 let right = cmp(tokens, pos);
                 left = Rc::new(Expr::Binary(left, op, right));
@@ -206,9 +206,9 @@ fn eval_expr(
                     &"|" => Ok(LiteralKind::NumWhole(left_num | right_num)),
                     &"&" => Ok(LiteralKind::NumWhole(left_num & right_num)),
                     &"^" => Ok(LiteralKind::NumWhole(left_num ^ right_num)),
-                    _ => Err(InterpreterError::Parser(format!(
-                        "{op} can't be applied on whole numbers"
-                    ))),
+                    _ => Err(InterpreterError::Parser(
+                        "{op} can't be applied on whole numbers".to_string(),
+                    )),
                 },
                 (LiteralKind::NumWhole(left_num), LiteralKind::NumDecimal(right_num)) => {
                     Ok(eval_floating_points(left_num as f64, right_num, op)?)
@@ -224,7 +224,14 @@ fn eval_expr(
                 )),
             }
         }
-        Expr::Unary(op, expr) => todo!(),
+        Expr::Unary(op, expr) => match (op, eval_expr(expr, environment)?) {
+            (&"-", LiteralKind::NumWhole(num)) => Ok(LiteralKind::NumWhole(-num)),
+            (&"-", LiteralKind::NumDecimal(num)) => Ok(LiteralKind::NumDecimal(-num)),
+            (&"-", LiteralKind::Str(_)) => Err(InterpreterError::Parser(
+                "negation on strings are invalid".to_string(),
+            )),
+            (&_, _) => todo!(),
+        },
         Expr::Var(id) => match environment.get(id) {
             Some(val) => Ok(val.clone()),
             None => panic!("undeclared variable referenced"),
