@@ -141,5 +141,5 @@ pub enum Token {
     Id(String),
     Literal(LiteralKind),
     Keyword(KeywordKind),
-    Op((OpKind, u8)),
+    Op(OpKind),
 }

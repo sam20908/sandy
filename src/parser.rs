@@ -75,11 +75,11 @@ fn expr(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
 fn eq(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = cmp(tokens, pos);
     while *pos < tokens.len() {
-        match tokens[*pos] {
-            Token::Op((op, _)) if matches!(op, OpKind::Eq | OpKind::Neq) => {
+        match &tokens[*pos] {
+            Token::Op(op) if matches!(op, OpKind::Eq | OpKind::Neq) => {
                 *pos += 1;
                 let right = cmp(tokens, pos);
-                left = Rc::new(Expr::Binary(left, op, right));
+                left = Rc::new(Expr::Binary(left, op.clone(), right));
             }
             _ => break,
         }
@@ -90,11 +90,11 @@ fn eq(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
 fn cmp(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = term(tokens, pos);
     while *pos < tokens.len() {
-        match tokens[*pos] {
-            Token::Op(OpKind::Cmp(op)) if matches!(op, "<" | ">" | "<=" | ">=") => {
+        match &tokens[*pos] {
+            Token::Op(op) if matches!(op, OpKind::Gt | OpKind::Lt | OpKind::Geq | OpKind::Leq) => {
                 *pos += 1;
                 let right = term(tokens, pos);
-                left = Rc::new(Expr::Binary(left, op, right));
+                left = Rc::new(Expr::Binary(left, op.clone(), right));
             }
             _ => break,
         }
@@ -105,11 +105,11 @@ fn cmp(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
 fn term(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = factor(tokens, pos);
     while *pos < tokens.len() {
-        match tokens[*pos] {
-            Token::Op(OpKind::Binary(op)) if matches!(op, "+" | "-") => {
+        match &tokens[*pos] {
+            Token::Op(op) if matches!(op, OpKind::Add | OpKind::Sub) => {
                 *pos += 1;
                 let right = factor(tokens, pos);
-                left = Rc::new(Expr::Binary(left, op, right));
+                left = Rc::new(Expr::Binary(left, op.clone(), right));
             }
             _ => break,
         }
@@ -120,11 +120,11 @@ fn term(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
 fn factor(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
     let mut left = unary(tokens, pos);
     while *pos < tokens.len() {
-        match tokens[*pos] {
-            Token::Op(OpKind::Binary(op)) if matches!(op, "*" | "/") => {
+        match &tokens[*pos] {
+            Token::Op(op) if matches!(op, OpKind::Mul | OpKind::Div) => {
                 *pos += 1;
                 let right = unary(tokens, pos);
-                left = Rc::new(Expr::Binary(left, op, right));
+                left = Rc::new(Expr::Binary(left, op.clone(), right));
             }
             _ => break,
         }
@@ -133,26 +133,26 @@ fn factor(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
 }
 
 fn unary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
-    match tokens[*pos] {
-        Token::Op(OpKind::Unary(op)) => {
+    match &tokens[*pos] {
+        Token::Op(op) if matches!(op, OpKind::LogicalNot | OpKind::Add | OpKind::Sub) => {
             *pos += 1;
             let expr = unary(tokens, pos);
-            Rc::new(Expr::Unary(op, expr))
+            Rc::new(Expr::Unary(op.clone(), expr))
         }
         _ => primary(tokens, pos),
     }
 }
 
 fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
-    match tokens[*pos] {
+    match &tokens[*pos] {
         Token::Literal(ref literal) => {
             *pos += 1;
             Rc::new(Expr::Literal(literal.clone()))
         }
-        Token::Op(OpKind::LBracket("(")) => {
+        Token::Op(OpKind::LBrace) => {
             *pos += 1;
             let expr = expr(tokens, pos);
-            if let None = check_token!(tokens, pos, Token::Op(OpKind::RBracket(")"))) {
+            if let None = check_token!(tokens, pos, Token::Op(OpKind::RBrace)) {
                 panic!("expected closing bracket after expression");
             }
             *pos += 1;
@@ -162,18 +162,22 @@ fn primary(tokens: &Vec<Token>, pos: &mut usize) -> Rc<Expr> {
             *pos += 1;
             Rc::new(Expr::Var(id.clone()))
         }
-        _ => panic!("unrecognized literal"),
+        _ => panic!("unrecognized primary expression"),
     }
 }
 
-fn eval_floating_points(left: f64, right: f64, op: &str) -> Result<LiteralKind, InterpreterError> {
+fn eval_floating_points(
+    left: f64,
+    right: f64,
+    op: OpKind,
+) -> Result<LiteralKind, InterpreterError> {
     match op {
-        "+" => Ok(LiteralKind::NumDecimal(left + right)),
-        "-" => Ok(LiteralKind::NumDecimal(left - right)),
-        "*" => Ok(LiteralKind::NumDecimal(left * right)),
-        "/" => Ok(LiteralKind::NumDecimal(left / right)),
+        OpKind::Add => Ok(LiteralKind::NumDecimal(left + right)),
+        OpKind::Sub => Ok(LiteralKind::NumDecimal(left - right)),
+        OpKind::Mul => Ok(LiteralKind::NumDecimal(left * right)),
+        OpKind::Div => Ok(LiteralKind::NumDecimal(left / right)),
         _ => Err(InterpreterError::Parser(format!(
-            "{op} can't be applied to floating points"
+            "{op:?} can't be applied to floating points"
         ))),
     }
 }
@@ -189,48 +193,54 @@ fn eval_expr(
             let right = eval_expr(&right, environment)?;
             match (left, right) {
                 (LiteralKind::Str(left_str), LiteralKind::Str(right_str)) => {
-                    if op == &"+" {
+                    if matches!(op, OpKind::Add) {
                         Ok(LiteralKind::Str(format!("{left_str}{right_str}")))
                     } else {
                         Err(InterpreterError::Parser(format!(
-                            "{op} can't be applied to strings"
+                            "{op:?} can't be applied to strings"
                         )))
                     }
                 }
                 (LiteralKind::NumWhole(left_num), LiteralKind::NumWhole(right_num)) => match op {
-                    &"+" => Ok(LiteralKind::NumWhole(left_num + right_num)),
-                    &"-" => Ok(LiteralKind::NumWhole(left_num - right_num)),
-                    &"*" => Ok(LiteralKind::NumWhole(left_num * right_num)),
-                    &"/" => Ok(LiteralKind::NumWhole(left_num / right_num)),
-                    &"%" => Ok(LiteralKind::NumWhole(left_num % right_num)),
-                    &"|" => Ok(LiteralKind::NumWhole(left_num | right_num)),
-                    &"&" => Ok(LiteralKind::NumWhole(left_num & right_num)),
-                    &"^" => Ok(LiteralKind::NumWhole(left_num ^ right_num)),
+                    OpKind::Add => Ok(LiteralKind::NumWhole(left_num + right_num)),
+                    OpKind::Sub => Ok(LiteralKind::NumWhole(left_num - right_num)),
+                    OpKind::Mul => Ok(LiteralKind::NumWhole(left_num * right_num)),
+                    OpKind::Div => Ok(LiteralKind::NumWhole(left_num / right_num)),
+                    OpKind::Mod => Ok(LiteralKind::NumWhole(left_num % right_num)),
+                    OpKind::BitOr => Ok(LiteralKind::NumWhole(left_num | right_num)),
+                    OpKind::BitAnd => Ok(LiteralKind::NumWhole(left_num & right_num)),
+                    OpKind::Xor => Ok(LiteralKind::NumWhole(left_num ^ right_num)),
                     _ => Err(InterpreterError::Parser(
-                        "{op} can't be applied on whole numbers".to_string(),
+                        "{op:?} can't be applied on whole numbers".to_string(),
                     )),
                 },
-                (LiteralKind::NumWhole(left_num), LiteralKind::NumDecimal(right_num)) => {
-                    Ok(eval_floating_points(left_num as f64, right_num, op)?)
-                }
-                (LiteralKind::NumDecimal(left_num), LiteralKind::NumWhole(right_num)) => {
-                    Ok(eval_floating_points(left_num, right_num as f64, op)?)
-                }
+                (LiteralKind::NumWhole(left_num), LiteralKind::NumDecimal(right_num)) => Ok(
+                    eval_floating_points(left_num as f64, right_num, op.clone())?,
+                ),
+                (LiteralKind::NumDecimal(left_num), LiteralKind::NumWhole(right_num)) => Ok(
+                    eval_floating_points(left_num, right_num as f64, op.clone())?,
+                ),
                 (LiteralKind::NumDecimal(left_num), LiteralKind::NumDecimal(right_num)) => {
-                    Ok(eval_floating_points(left_num, right_num, op)?)
+                    Ok(eval_floating_points(left_num, right_num, op.clone())?)
                 }
                 _ => Err(InterpreterError::Parser(
                     "Can't have a string and number as operands".to_string(),
                 )),
             }
         }
-        Expr::Unary(op, expr) => match (op, eval_expr(expr, environment)?) {
-            (&"-", LiteralKind::NumWhole(num)) => Ok(LiteralKind::NumWhole(-num)),
-            (&"-", LiteralKind::NumDecimal(num)) => Ok(LiteralKind::NumDecimal(-num)),
-            (&"-", LiteralKind::Str(_)) => Err(InterpreterError::Parser(
-                "negation on strings are invalid".to_string(),
+        Expr::Unary(op, expr) => match op {
+            OpKind::LogicalNot => todo!(),
+            OpKind::Add => Ok(eval_expr(&expr, environment)?),
+            OpKind::Sub => match eval_expr(&expr, environment)? {
+                LiteralKind::NumWhole(num) => Ok(LiteralKind::NumWhole(-num)),
+                LiteralKind::NumDecimal(num) => Ok(LiteralKind::NumDecimal(-num)),
+                _ => Err(InterpreterError::Parser(
+                    "{op:?} not supported as unary op for expression".to_string(),
+                )),
+            },
+            _ => Err(InterpreterError::Parser(
+                "{op:?} not recognized as unary op".to_string(),
             )),
-            (&_, _) => todo!(),
         },
         Expr::Var(id) => match environment.get(id) {
             Some(val) => Ok(val.clone()),
@@ -240,7 +250,7 @@ fn eval_expr(
 }
 
 fn eval_stmt(stmt: &Stmt, environment: &mut HashMap<String, LiteralKind>) {
-    match stmt {
+    match &stmt {
         Stmt::VarDecl(id, expr) => {
             // creating a new variable with an initializer from expr
             if let Some(_) = environment.insert(
